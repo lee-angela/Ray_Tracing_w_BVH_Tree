@@ -1,0 +1,16 @@
+# This file uses centimeters as units for non-parametric coordinates.
+
+mtllib dodecahedron.mtl
+g default
+v 0.934172 -0.356822 -0.000000
+v 0.934172 0.356822 0.000000
+v 0.356822 0.000000 -0.934172
+vt 0.099106 0.250000
+vt 0.221609 0.250000
+vt 0.259464 0.368034
+vn 0.850651 0.000000 -0.525731
+vn 0.850651 0.000000 -0.525731
+vn 0.850651 0.000000 -0.525731
+s off
+g pSolid1
+usemtl initialShadingGroup

@@ -1,0 +1,229 @@
+#include "sphere.h"
+#include "../../raytracing/intersection.h"
+#include <iostream>
+
+#include <la.h>
+
+static const int SPH_IDX_COUNT = 2280;  // 760 tris * 3
+static const int SPH_VERT_COUNT = 382;
+
+
+void Sphere::setBoundingBox() {
+    this->boundingBox->setTransformedBox(this->transform.T());
+}
+
+
+
+Intersection Sphere::GetIntersection(Ray r)
+{
+    Ray r1 = r.GetTransformedCopy(this->transform.invT());
+    Intersection pt;
+    float t = -1.0;
+
+    //center of sphere at 0,0,0
+    //radius : 0.5
+    float a = glm::pow(r1.direction[0], 2.0f) + glm::pow(r1.direction[1], 2.0f) + glm::pow(r1.direction[2], 2.0f);
+    float b = 2 * ((r1.direction[0] * r1.origin[0]) + (r1.direction[1] * r1.origin[1]) + (r1.direction[2] * r1.origin[2]));
+    float c = glm::pow(r1.origin[0], 2.0f) + glm::pow(r1.origin[1], 2.0f) + glm::pow(r1.origin[2], 2.0f) - 0.25f;
+
+    float discrm = glm::pow(b, 2.0f) - 4*a*c;
+
+    //if discriminant = 0, no real intersection - return default intersection pt.
+    if (discrm < 0) {
+        return pt;
+    }
+    else {
+        float t0 = (-b - glm::sqrt(discrm)) / (2 * a); //closer to eye
+        float t1 = (-b + glm::sqrt(discrm)) / (2 * a); //further from eye
+
+        if (t0 > 0) {
+            //t0 is the closer pt of intersection
+            t = t0;
+        } else if (t1 > 0) {
+            // t1 is the closer pt of intersection
+            t = t1;
+        } else {
+            // may both be negative, or both not in the viewable area
+            return pt;
+        }
+
+        // after correct t value is determined, find the actual pt of intersection.
+        glm::vec3 intersectionPt = r1.origin + t * r1.direction;
+
+        pt.normal = glm::normalize(glm::vec3(this->transform.invTransT()*glm::vec4(intersectionPt,0)));
+
+        //set the info (in world space) of the Intersection Point to be returned
+        pt.point = glm::vec3(this->transform.T()*glm::vec4(intersectionPt, 1));
+
+        pt.t = t; // this is world space
+        pt.object_hit = this;
+        if (pt.object_hit->material->texture == NULL) {
+            pt.hit_color = this->material->base_color;
+        } else {
+            pt.hit_color = this->material->base_color*this->material->GetImageColor(GetUVCoordinates(intersectionPt),
+                                                                                    this->material->texture);
+        }
+    }
+    return pt;
+}
+
+
+
+
+
+
+// this function takes as input a local-space vec3 point
+// on the surface of the object and returns a vec2 representing
+// the texture coordinates at that point.
+
+glm::vec2 Sphere::GetUVCoordinates(const glm::vec3 &point) {
+
+    //assuming sphere's axis is aligned with y axis
+
+    glm::vec2 uv(0.0f);
+    glm::vec3 d = glm::normalize(point);
+    uv[0] = 0.5 + atan2((float)d[2], (float)d[0])/2/PI;
+    uv[1] = 0.5 - asin((float)d[1])/2/PI;
+    
+    return uv;
+
+}
+
+
+
+
+
+
+// These are functions that are only defined in this cpp file. They're used for organizational purposes
+// when filling the arrays used to hold the vertex and index data.
+void createSphereVertexPositions(glm::vec3 (&sph_vert_pos)[SPH_VERT_COUNT])
+{
+    // Create rings of vertices for the non-pole vertices
+    // These will fill indices 1 - 380. Indices 0 and 381 will be filled by the two pole vertices.
+    glm::vec4 v;
+    // i is the Z axis rotation
+    for (int i = 1; i < 19; i++) {
+        // j is the Y axis rotation
+        for (int j = 0; j < 20; j++) {
+            v = glm::rotate(glm::mat4(1.0f), j / 20.f * TWO_PI, glm::vec3(0, 1, 0))
+                * glm::rotate(glm::mat4(1.0f), -i / 18.0f * PI, glm::vec3(0, 0, 1))
+                * glm::vec4(0, 0.5f, 0, 1);
+            sph_vert_pos[(i - 1) * 20 + j + 1] = glm::vec3(v);
+        }
+    }
+    // Add the pole vertices
+    sph_vert_pos[0] = glm::vec3(0, 0.5f, 0);
+    sph_vert_pos[381] = glm::vec3(0, -0.5f, 0);  // 361 - 380 are the vertices for the bottom cap
+}
+
+
+void createSphereVertexNormals(glm::vec3 (&sph_vert_nor)[SPH_VERT_COUNT])
+{
+    // Unlike a cylinder, a sphere only needs to be one normal per vertex
+    // because a sphere does not have sharp edges.
+    glm::vec4 v;
+    // i is the Z axis rotation
+    for (int i = 1; i < 19; i++) {
+        // j is the Y axis rotation
+        for (int j = 0; j < 20; j++) {
+            v = glm::rotate(glm::mat4(1.0f), j / 20.0f * TWO_PI, glm::vec3(0, 1, 0))
+                * glm::rotate(glm::mat4(1.0f), -i / 18.0f * PI, glm::vec3(0, 0, 1))
+                * glm::vec4(0, 1.0f, 0, 0);
+            sph_vert_nor[(i - 1) * 20 + j + 1] = glm::vec3(v);
+        }
+    }
+    // Add the pole normals
+    sph_vert_nor[0] = glm::vec3(0, 1.0f, 0);
+    sph_vert_nor[381] = glm::vec3(0, -1.0f, 0);
+}
+
+
+void createSphereIndices(GLuint (&sph_idx)[SPH_IDX_COUNT])
+{
+    int index = 0;
+    // Build indices for the top cap (20 tris, indices 0 - 60, up to vertex 20)
+    for (int i = 0; i < 19; i++) {
+        sph_idx[index] = 0;
+        sph_idx[index + 1] = i + 1;
+        sph_idx[index + 2] = i + 2;
+        index += 3;
+    }
+    // Must create the last triangle separately because its indices loop
+    sph_idx[57] = 0;
+    sph_idx[58] = 20;
+    sph_idx[59] = 1;
+    index += 3;
+
+    // Build indices for the body vertices
+    // i is the Z axis rotation
+    for (int i = 1; i < 19; i++) {
+        // j is the Y axis rotation
+        for (int j = 0; j < 20; j++) {
+            sph_idx[index] = (i - 1) * 20 + j + 1;
+            sph_idx[index + 1] = (i - 1) * 20 +  j + 2;
+            sph_idx[index + 2] = (i - 1) * 20 +  j + 22;
+            sph_idx[index + 3] = (i - 1) * 20 +  j + 1;
+            sph_idx[index + 4] = (i - 1) * 20 +  j + 22;
+            sph_idx[index + 5] = (i - 1) * 20 +  j + 21;
+            index += 6;
+        }
+    }
+
+    // Build indices for the bottom cap (20 tris, indices 2220 - 2279)
+    for (int i = 0; i < 19; i++) {
+        sph_idx[index] = 381;
+        sph_idx[index + 1] = i + 361;
+        sph_idx[index + 2] = i + 362;
+        index += 3;
+    }
+    // Must create the last triangle separately because its indices loop
+    sph_idx[2277] = 381;
+    sph_idx[2278] = 380;
+    sph_idx[2279] = 361;
+    index += 3;
+}
+
+void Sphere::create()
+{
+    this->boundingBox = new BoundingBox();
+    setBoundingBox();
+
+
+    GLuint sph_idx[SPH_IDX_COUNT];
+    glm::vec3 sph_vert_pos[SPH_VERT_COUNT];
+    glm::vec3 sph_vert_nor[SPH_VERT_COUNT];
+    glm::vec3 sph_vert_col[SPH_VERT_COUNT];
+
+    createSphereVertexPositions(sph_vert_pos);
+    createSphereVertexNormals(sph_vert_nor);
+    createSphereIndices(sph_idx);
+    for (int i = 0; i < SPH_VERT_COUNT; i++) {
+        sph_vert_col[i] = material->base_color;
+    }
+
+    count = SPH_IDX_COUNT;
+
+    bufIdx.create();
+    bufIdx.bind();
+    bufIdx.setUsagePattern(QOpenGLBuffer::StaticDraw);
+    bufIdx.allocate(sph_idx, SPH_IDX_COUNT * sizeof(GLuint));
+
+    bufPos.create();
+    bufPos.bind();
+    bufPos.setUsagePattern(QOpenGLBuffer::StaticDraw);
+    bufPos.allocate(sph_vert_pos, SPH_VERT_COUNT * sizeof(glm::vec3));
+
+    bufCol.create();
+    bufCol.bind();
+    bufCol.setUsagePattern(QOpenGLBuffer::StaticDraw);
+    bufCol.allocate(sph_vert_col, SPH_VERT_COUNT * sizeof(glm::vec3));
+
+    bufNor.create();
+    bufNor.bind();
+    bufNor.setUsagePattern(QOpenGLBuffer::StaticDraw);
+    bufNor.allocate(sph_vert_nor, SPH_VERT_COUNT * sizeof(glm::vec3));
+}
+
+bool Sphere::isMesh() {
+    return false;
+}

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<scene>
+	<camera>
+		<target>0 0 0</target>
+		<eye>0 4 6</eye>
+		<worldUp>0 1 0</worldUp>
+		<fov>50</fov>
+		<width>400</width>
+		<height>400</height>
+	</camera>
+
+	<geometry type="square" name="squarePlane">
+		<material>textured_diffuse</material>
+		<transform>
+			<scale>2 2 2</scale>
+		</transform>
+	</geometry>
+
+
+
+
+	<material type="lambert" name="textured_diffuse">
+		<baseColor>1 1 1</baseColor>
+		<texture>uv_test.bmp</texture>
+	</material>
+
+
+	<integrator type="raytrace">
+		<maxDepth>5</maxDepth>
+	</integrator>
+</scene>

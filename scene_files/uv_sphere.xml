@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<scene>
+	<camera>
+		<target>0 0 0</target>
+		<eye>1 1 1</eye>
+		<worldUp>0 1 0</worldUp>
+		<fov>50</fov>
+		<width>400</width>
+		<height>400</height>
+	</camera>
+
+	<geometry type="sphere" name="Sphere">
+		<material>textured_diffuse</material>
+	</geometry>
+
+	<geometry type="sphere" name="Light Source">
+		<transform>
+			<translate>0 4 5</translate>
+			<scale>0.5 0.5 0.5</scale>
+		</transform>
+		<material>emissive_material</material>
+	</geometry>
+
+
+
+
+
+
+	<material type="lambert" name="textured_diffuse">
+		<baseColor>1 1 1</baseColor>
+		<texture>uv_test.bmp</texture>
+	</material>
+
+	<material type="lambert" name="emissive_material">
+		<baseColor>1 1 1</baseColor>
+		<emissive>true</emissive>
+	</material>
+
+	<integrator type="raytrace">
+		<maxDepth>5</maxDepth>
+	</integrator>
+</scene>
